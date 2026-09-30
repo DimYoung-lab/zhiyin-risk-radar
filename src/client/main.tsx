@@ -692,6 +692,8 @@ function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [targetRun, setTargetRun] = useState<string | null>(null);
+  const [linkedRun, setLinkedRun] = useState<Run | null>(null);
   const [editor, setEditor] = useState<{
     rule: Rule;
     taskId?: string;
@@ -743,6 +745,31 @@ function App() {
         .querySelector(".detail-panel")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [detail?.task.id]);
+  useEffect(() => {
+    setLinkedRun(null);
+    if (!targetRun || !selected) return;
+    let cancelled = false;
+    void api<Run>("/tasks/" + selected + "/runs/" + targetRun)
+      .then((run) => {
+        if (!cancelled) setLinkedRun(run);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [targetRun, selected]);
+  useEffect(() => {
+    if (detailTab !== "history" || !linkedRun || detail?.task.id !== selected)
+      return;
+    const frame = requestAnimationFrame(() =>
+      document
+        .getElementById("run-" + linkedRun.id)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [linkedRun?.id, detail?.task.id, detailTab, selected]);
   async function runWork(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -780,6 +807,7 @@ function App() {
       setEditor(null);
       setCompose(false);
       setParseInfo(null);
+      setTargetRun(null);
       setSelected(r.task.id);
       await refresh(r.task.id);
       setNotice(
@@ -800,6 +828,7 @@ function App() {
       setCompose(false);
       setEditor(null);
       const r = await api<{ task: Task }>("/demo", "POST", {});
+      setTargetRun(null);
       setSelected(r.task.id);
       setView("tasks");
       await api("/tasks/" + r.task.id + "/demo", "POST", {
@@ -819,6 +848,12 @@ function App() {
   const active = tasks.filter((t) => t.enabled && t.mode === "live").length,
     degraded = tasks.filter((t) => t.enabled && t.health === "degraded").length;
   const latest = detail?.runs[0];
+  const historyRuns = detail
+    ? linkedRun?.taskId === detail.task.id &&
+      !detail.runs.some((r) => r.id === linkedRun.id)
+      ? [linkedRun, ...detail.runs]
+      : detail.runs
+    : [];
   const heartbeatFresh =
     health?.heartbeat && Date.now() - health.heartbeat.receivedAt < 180000;
   const visibleTasks = tasks.filter(
@@ -834,7 +869,7 @@ function App() {
       </a>
       <aside className="sidebar">
         <a className="brand" href="/" aria-label="知因雷达首页">
-          <Radar size={23} />
+          <Radar aria-hidden="true" size={23} />
           <span>知因雷达</span>
         </a>
         <div className="sidebar-label">个人工作台</div>
@@ -1174,6 +1209,7 @@ function App() {
                           key={t.id}
                           onClick={() => {
                             setDetailTab("latest");
+                            setTargetRun(null);
                             setSelected(t.id);
                             setEditor(null);
                             setCompose(false);
@@ -1428,8 +1464,13 @@ function App() {
                         ))}
                       {detailTab === "history" && (
                         <div className="timeline">
-                          {detail.runs.map((r) => (
-                            <details key={r.id} className="timeline-entry">
+                          {historyRuns.map((r) => (
+                            <details
+                              key={r.id}
+                              id={"run-" + r.id}
+                              className="timeline-entry"
+                              open={targetRun === r.id}
+                            >
                               <summary>
                                 <span
                                   className={
@@ -1456,6 +1497,11 @@ function App() {
                               </summary>
                               {r.result && (
                                 <div className="timeline-result">
+                                  {targetRun === r.id && (
+                                    <p className="subtle">
+                                      该提醒对应的检查 · v{r.version}
+                                    </p>
+                                  )}
                                   <Result
                                     result={r.result}
                                     evidence={r.evidence}
@@ -1559,6 +1605,7 @@ function App() {
                           setView("tasks");
                           setSelected(a.taskId);
                           setDetailTab("history");
+                          setTargetRun(a.runId);
                         }}
                       >
                         <Bell aria-hidden="true" size={18} />

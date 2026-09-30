@@ -8,6 +8,7 @@ import {
   AppError,
   boundedJSON,
   record,
+  normalizeDraft,
   collect,
   searchSymbols,
   parseIntent,
@@ -21,6 +22,7 @@ import {
   tick,
   listTasks,
   listRuns,
+  getRun,
   listAlerts,
   getTask,
   quota,
@@ -157,7 +159,7 @@ app.post("/api/rules/parse", async (c) => {
         s.name === query,
     ) ?? (symbols.length === 1 ? symbols[0] : undefined);
   const candidate = {
-    ...draft,
+    ...normalizeDraft(draft),
     originalText: text.data,
     symbol: symbol?.symbol ?? "",
     symbolName: symbol?.name ?? "",
@@ -235,6 +237,10 @@ app.get("/api/tasks/:id", async (c) => {
       createdAt: v.created_at,
     })),
   });
+});
+app.get("/api/tasks/:id/runs/:runId", async (c) => {
+  const task = await getTask(c.env.DB, c.req.param("id"), c.get("workspace"));
+  return c.json(await getRun(c.env.DB, task.id, c.req.param("runId")));
 });
 app.patch("/api/tasks/:id", async (c) => {
   const input = await body(c.req.raw);

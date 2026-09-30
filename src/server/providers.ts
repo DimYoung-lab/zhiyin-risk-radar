@@ -50,6 +50,18 @@ export function record(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
+export function normalizeDraft(draft: Record<string, unknown>) {
+  const schedule = record(draft.schedule);
+  return {
+    ...draft,
+    schedule: {
+      ...schedule,
+      ...(schedule.mode === "intraday" ? { at: "15:10" } : {}),
+      ...(schedule.mode === "close" ? { at: "15:10", intervalMinutes: 5 } : {}),
+      ...(schedule.mode === "daily" ? { intervalMinutes: 5 } : {}),
+    },
+  };
+}
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 const root = "https://fuyao.aicubes.cn";

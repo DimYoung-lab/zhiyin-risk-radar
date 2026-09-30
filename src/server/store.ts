@@ -114,6 +114,14 @@ export async function listRuns(db: D1Database, id: string) {
       .all<RunRow>()
   ).results.map(runFrom);
 }
+export async function getRun(db: D1Database, taskId: string, id: string) {
+  const row = await db
+    .prepare("SELECT * FROM runs WHERE task_id=? AND id=?")
+    .bind(taskId, id)
+    .first<RunRow>();
+  if (!row) throw new AppError("检查记录不存在", 404);
+  return runFrom(row);
+}
 export async function listAlerts(db: D1Database, workspace: string) {
   return (
     await db

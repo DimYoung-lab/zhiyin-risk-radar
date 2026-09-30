@@ -1,8 +1,14 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { collect, parseIntent, boundedJSON } from "../src/server/providers";
+import {
+  collect,
+  parseIntent,
+  boundedJSON,
+  normalizeDraft,
+} from "../src/server/providers";
 import { evaluate } from "../src/shared/engine";
 import { demoRule } from "../src/shared/demo";
 import type { Rule } from "../src/shared/types";
+import { ruleSchema } from "../src/shared/types";
 
 const now = Date.parse("2026-09-30T10:00:00+08:00");
 const env = {
@@ -24,6 +30,38 @@ const response = (data: unknown) =>
     headers: { "x-request-id": "test-request" },
   });
 afterEach(() => vi.unstubAllGlobals());
+
+it.each(["intraday", "close"] as const)(
+  "%s模式的无效非执行字段规范化，不改变条件",
+  (mode) => {
+    const draft = normalizeDraft({
+      ...demoRule,
+      schedule: {
+        mode,
+        at: null,
+        intervalMinutes: mode === "close" ? null : 15,
+      },
+    });
+    const parsed = ruleSchema.parse(draft);
+    expect(parsed.schedule.at).toBe("15:10");
+    expect(parsed.schedule.intervalMinutes).toBe(mode === "close" ? 5 : 15);
+    expect(parsed.conditions).toEqual(demoRule.conditions);
+  },
+);
+it("daily缺少执行时刻仍拒绝，不自动猜时间", () => {
+  const draft = normalizeDraft({
+    ...demoRule,
+    schedule: { mode: "daily", at: null, intervalMinutes: null },
+  });
+  expect(ruleSchema.safeParse(draft).success).toBe(false);
+});
+it("intraday缺少执行频率仍拒绝，不自动猜频率", () => {
+  const draft = normalizeDraft({
+    ...demoRule,
+    schedule: { mode: "intraday", at: null, intervalMinutes: null },
+  });
+  expect(ruleSchema.safeParse(draft).success).toBe(false);
+});
 
 it.each([
   [

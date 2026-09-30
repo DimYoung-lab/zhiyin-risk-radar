@@ -37,7 +37,7 @@ await check("真实数据与模型凭证已配置", async () => {
   assert.equal(r.value.aiConfigured, true);
   assert.equal(r.value.dataConfigured, true);
 });
-let id, rule, version;
+let id, rule, version, alertRunId;
 await check("创建隔离演示任务并持久化", async () => {
   const r = await request("/demo", "POST", {});
   assert.equal(r.status, 201);
@@ -60,6 +60,11 @@ await check("未满足不提醒", async () => {
 await check("首次满足提醒且原始证据可追溯", async () => {
   const r = await scene("matched");
   assert.equal(r.run.result.decision, "alert");
+  alertRunId = r.run.id;
+  const linked = await request("/tasks/" + id + "/runs/" + alertRunId);
+  assert.equal(linked.status, 200);
+  assert.equal(linked.value.id, alertRunId);
+  assert.equal(linked.value.result.decision, "alert");
   assert.equal(r.run.evidence[0].fields.raw.prev_price, 1300);
   assert.ok(r.run.result.checks.every((c) => c.evidenceIds.length));
 });
@@ -165,6 +170,14 @@ await check("不同浏览器无法访问任务或证据", async () => {
       .status,
     404,
   );
+  assert.equal(
+    (
+      await request("/tasks/" + id + "/runs/" + alertRunId, "GET", undefined, {
+        isolated: true,
+      })
+    ).status,
+    404,
+  );
 });
 await check("拒绝跨域写入", async () => {
   assert.equal(
@@ -207,6 +220,17 @@ await check("DeepSeek真实解析与校验", async () => {
   });
   assert.equal(r.status, 200);
   assert.equal(r.value.model, "deepseek-flash");
+  if (!r.value.rule) {
+    mkdirSync("artifacts", { recursive: true });
+    writeFileSync(
+      "artifacts/parse-validation-failure.json",
+      JSON.stringify(r.value, null, 2),
+    );
+  }
+  assert.ok(
+    r.value.rule,
+    "草稿未通过校验：" + r.value.clarifications?.join("；"),
+  );
   assert.equal(r.value.rule.symbol, "600519.SH");
   assert.equal(
     r.value.rule.conditions.find((c) => c.field === "change_pct").value,

@@ -6,7 +6,7 @@
 
 | 验证层 | 结果 | 证据与范围 |
 |---|---|---|
-| 自动测试 | 42 / 42 通过 | `tests/engine.test.ts` 26 项、`tests/api.test.ts` 3 项、`tests/providers.test.ts` 13 项；规则 / 时间 / 去重 / 错误与适配器边界 |
+| 自动测试 | 46 / 46 通过 | `tests/engine.test.ts` 26 项、`tests/api.test.ts` 3 项、`tests/providers.test.ts` 17 项；规则 / 时间 / 去重 / 错误与适配器边界 |
 | 静态检查与构建 | 通过 | `npm run build` 执行 TypeScript 检查与 Vite 生产构建 |
 | 实际端到端 API | 27 / 27 通过 | 线上 Workers / D1、真实 DeepSeek 和扶摇；提交包 `verification/integration-report.json` |
 | 真实后台调度 | 通过 | 客户端进程退出后由线上 Cron 执行；提交包 `verification/cron-proof.json` |
@@ -46,6 +46,9 @@ node scripts/cron-proof.mjs inspect
 | 编辑规则 | v1 留存，新规则成为 v2，原冷却截止不变 |
 | 用旧版本编辑 | 409，要求刷新；避免覆盖其他修改 |
 | 4 个并发检查请求 | 由 D1 租约协调；成功或 409，同版本提醒不重复 |
+| 提醒与旧检查关联 | 自动展开提醒对应的运行，显示原版本与检查 ID；独立查询入口不受最近40条列表窗口限制，同样核验空间权限 |
+
+2026-10-01 的一次复测为 26 / 27：真实模型返回盘中计划 `at=null`，未通过 Schema，系统没有启用该草稿。复现确认该字段在盘中不参与执行后，新增非执行字段规范化与四项回归测试；daily 缺时刻、intraday 缺频率仍拒绝。失败原报告保留在提交包 `verification/integration-first-retrace.json`，最终复测结果以 `integration-report.json` 为准。
 
 ## 数据与接口异常
 
