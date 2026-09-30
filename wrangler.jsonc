@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "zhiyin-risk-radar",
+  "main": "src/server/index.ts",
+  "compatibility_date": "2026-09-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "6575cd1884b706747b308b48c76363ac",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zhiyin-risk-radar",
+      "database_id": "6c0a7859-66f8-413a-b1fb-eb2bc21647b5",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "vars": {
+    "LLM_BASE_URL": "https://api.deepseek.com",
+    "LLM_MODEL": "deepseek-flash",
+    "MAX_ACTIVE_TASKS": "12",
+    "MAX_DAILY_AI": "200",
+  },
+  "triggers": { "crons": ["* * * * *"] },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "traces": { "enabled": true, "head_sampling_rate": 1 },
+  },
+}
