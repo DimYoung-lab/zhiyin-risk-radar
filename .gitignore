@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+.env*
+!.env.example
+test-results/
+playwright-report/
+artifacts/
+submission/
+*.mp4
+*.webm
+*.zip
+.DS_Store
+01_AI驱动的股票市场大势研判.md
+13_投资XBuddy.md
+候选人附件_可配置投资监控与风险雷达.md

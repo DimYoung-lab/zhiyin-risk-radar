@@ -1,0 +1,17 @@
+{
+  "name": "zhiyin-risk-radar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:api": "wrangler dev --port 8787 --test-scheduled",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "types": "wrangler types",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run build && wrangler deploy",
+    "verify": "npm run test && npm run build"
+  }
+}
