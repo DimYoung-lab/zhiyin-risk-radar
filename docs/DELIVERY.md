@@ -60,6 +60,8 @@
 
 模型配置评估继续采用非思考模式、1800 tokens、温度0.1与35秒超时，并显式设置 `reasoning_effort: none`，补充输出截断保护。两模式各6项真实调用对比和最终配置6项复核均通过，报告为 `verification/model-config-comparison.json` 与 `verification/model-config-selected.json`；设置依据和样本局限见 [AI_USAGE.md](AI_USAGE.md)。13:08:55新部署再次通过33项线上API检查，报告记录最新部署版本。Cron与用户视角报告保留各自原执行时间，不将其冒称为本次模型参数的重新验证。
 
+随后完成下拉箭头、单位间距、收盘频率与窄屏文字的前端细节修正，并说明模型版本/调用别名及3个运行名额的依据；本地和线上各8项浏览器检查通过。证据见 `verification/ui-detail-review.json` 与 [UX_REVIEW.md](UX_REVIEW.md)，最新部署版本见交付清单，后端报告仍保留之前的执行时间。
+
 ## 包内目录
 
 - `README.md`：产品、运行和部署说明。

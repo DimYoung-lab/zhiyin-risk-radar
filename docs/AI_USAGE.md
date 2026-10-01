@@ -17,6 +17,8 @@
 
 后端调用 DeepSeek 原生 `/chat/completions`，模型参数 `deepseek-flash`，JSON 输出、低温度、关闭 thinking。系统提示限定可用字段、单位、阈值、未支持事项与澄清要求；提示文本位于 `src/server/providers.ts`。模型的证券名称 / 代码查询由真实检索确认，草稿经过 Schema 校验，最后由用户确认启用。
 
+`deepseek-flash`是API调用名称。依据 [2026-09-10官方发布说明](https://api-docs.deepseek.com/news/news260910/)，截至2026-10-01它对应的实际模型版本为 **DeepSeek V4.1 Flash**。这是服务商维护的别名，不保证未来始终指向同一版本；审计与验证报告保留API实际返回的 `model` 字段，不将其误写成固定版本凭据。本项目仅使用文字能力。
+
 ### 思考与生成参数评估
 
 2026-10-01 13:00（上海时间）核对实际请求后，确认原配置已显式关闭思考，1800 tokens是生成上限，并非独立思考预算。依据 [DeepSeek 思考模式说明](https://api-docs.deepseek.com/guides/thinking_mode/) 和 [Chat Completions 参数说明](https://api-docs.deepseek.com/api/create-chat-completion/)，最终保留关闭思考，并显式设置 `reasoning_effort: none`；不依赖服务默认的思考模式和强度。

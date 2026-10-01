@@ -1323,6 +1323,20 @@ pre {
   font-size: 12px;
   color: #455e36;
 }
+.editor select {
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='m3.5 5.25 3.5 3.5 3.5-3.5' stroke='%235f7452' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
+}
+.editor select:disabled {
+  background-color: #f7f9f1;
+  background-image: none;
+  color: #748169;
+  cursor: not-allowed;
+}
 .search-field {
   display: flex;
   border: 1px solid #cdd9c2;
@@ -1408,7 +1422,7 @@ pre {
 }
 .condition-row {
   display: grid;
-  grid-template-columns: 25px 1.2fr 1fr 1fr 28px;
+  grid-template-columns: 25px 1.2fr 1fr 1fr 32px;
   gap: 10px;
   align-items: center;
   margin-bottom: 10px;
@@ -1421,13 +1435,18 @@ pre {
 .unit-input {
   position: relative;
 }
-.unit-input input {
+.editor .unit-input input {
   padding-right: 46px;
+}
+.editor .unit-input input[type="date"] {
+  padding-right: 11px;
 }
 .unit-input > span {
   position: absolute;
   right: 11px;
-  top: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
   font-size: 11px;
   color: #5f7452;
 }
@@ -2094,6 +2113,9 @@ pre {
     min-height: 42px;
     padding: 10px;
   }
+  .editor select {
+    padding-right: 38px;
+  }
   .editor > .text-button {
     margin: 0 17px 18px;
   }
@@ -2223,5 +2245,39 @@ pre {
 @media (max-width: 600px) {
   .skip-link {
     left: 16px;
+  }
+}
+@media (max-width: 480px) {
+  .schedule-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 420px) {
+  .condition-row {
+    grid-template-columns: 20px minmax(0, 1fr) 36px;
+  }
+  .condition-row > select:nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .condition-row > select:nth-child(3) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .condition-row > .unit-input,
+  .condition-row > select:nth-last-child(2) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .condition-row > .icon-button {
+    grid-column: 3;
+    grid-row: 1/4;
+  }
+}
+@media (forced-colors: active) {
+  .editor select {
+    appearance: auto;
+    background-image: none;
+    padding-right: 11px;
   }
 }

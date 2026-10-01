@@ -117,6 +117,48 @@ if (packageRoot) {
       .digest("hex") !== selected.adapterSHA256
   )
     failures.push("模型配置报告与适配器源码或交付清单不一致");
+  const uiDetails = JSON.parse(
+    fs.readFileSync(
+      path.join(packageRoot, "verification/ui-detail-review.json"),
+      "utf8",
+    ),
+  );
+  const uiManifest = manifest.verification.uiDetailReview;
+  if (
+    uiDetails.passed !== uiDetails.total ||
+    uiDetails.cases.length !== uiDetails.total ||
+    uiDetails.cases.some((item) => !item.passed) ||
+    uiDetails.localRetest.passed !== uiDetails.localRetest.total ||
+    uiDetails.remainingTasks !== 0 ||
+    uiDetails.remainingAlerts !== 0 ||
+    uiDetails.pageErrors.length !== 0 ||
+    uiManifest?.passed !== uiDetails.passed ||
+    uiManifest?.total !== uiDetails.total ||
+    uiManifest?.at !== uiDetails.at ||
+    uiManifest?.testedWorkerVersion !== uiDetails.workerVersion ||
+    manifest.workerVersion !== uiDetails.workerVersion
+  )
+    failures.push("表单细节回归报告与当前部署或交付清单不一致");
+  for (const [file, expected] of Object.entries(uiDetails.sourceHashes)) {
+    if (
+      crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(path.join(packageRoot, file)))
+        .digest("hex") !== expected
+    )
+      failures.push(`表单细节回归与前端源码不一致：${file}`);
+  }
+  for (const screenshot of uiDetails.screenshots) {
+    const file = path.join(packageRoot, screenshot.file);
+    if (
+      !fs.existsSync(file) ||
+      crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(file))
+        .digest("hex") !== screenshot.sha256
+    )
+      failures.push(`表单细节证据图缺失或校验不一致：${screenshot.file}`);
+  }
   const local = JSON.parse(
     fs.readFileSync(
       path.join(packageRoot, "verification/integration-local-report.json"),

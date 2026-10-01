@@ -562,7 +562,7 @@ function Editor({
                     })
                   }
                 />
-                <span>{unitOf(c.field)}</span>
+                {unitOf(c.field) && <span>{unitOf(c.field)}</span>}
               </div>
             )}
             <button
@@ -639,7 +639,11 @@ function Editor({
           ) : (
             <select
               aria-label="检查频率"
-              value={rule.schedule.intervalMinutes}
+              value={
+                rule.schedule.mode === "close"
+                  ? "close"
+                  : rule.schedule.intervalMinutes
+              }
               disabled={rule.schedule.mode === "close"}
               onChange={(e) => {
                 setRule({
@@ -652,11 +656,15 @@ function Editor({
                 setPreview(null);
               }}
             >
-              {[5, 15, 60].map((n) => (
-                <option key={n} value={n}>
-                  每{n}分钟
-                </option>
-              ))}
+              {rule.schedule.mode === "close" ? (
+                <option value="close">每个交易日一次</option>
+              ) : (
+                [5, 15, 60].map((n) => (
+                  <option key={n} value={n}>
+                    每{n}分钟
+                  </option>
+                ))
+              )}
             </select>
           )}
         </label>
@@ -1954,10 +1962,24 @@ function App() {
                     AND / OR 组合条件。
                   </p>
                   <p>
-                    DeepSeek Flash
+                    DeepSeek V4.1 Flash
                     只生成规则草稿，模糊阈值需要澄清。你确认证券、条件和频率后才启用；任务由确定性规则引擎判断。条件有“满足
                     / 不满足 / 无法判断”三种结果，局部数据异常会单独标识。
                   </p>
+                  <p>
+                    模型调用名称为 <code>deepseek-flash</code>
+                    ，截至2026年10月1日对应 DeepSeek V4.1
+                    Flash。调用名称是服务商的模型别名，实际版本可能随官方升级变化；本产品仅使用文字解析，关闭思考模式。
+                  </p>
+                  <a
+                    className="help-link"
+                    href="https://api-docs.deepseek.com/news/news260910/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    查看模型版本说明
+                    <ExternalLink aria-hidden="true" size={13} />
+                  </a>
                 </section>
                 <section id="sources">
                   <h2>数据与口径</h2>
@@ -2022,13 +2044,16 @@ function App() {
                     每个浏览器最多30个总任务（含演示和暂停），其中最多3个运行中的真实任务，全站12个。删除可释放总任务额度，暂停只释放运行额度。AI解析全站每天200次，每个浏览器每天20次。当前没有正式账号、跨设备同步、公告事件、指数、财务估值、邮件或推送。
                   </p>
                   <p>
+                    3个运行名额是公开体验版的保守配额，用于控制持续取数开销和共享后台负载，让多个体验空间能使用服务；并非笔试要求、模型限制或经过压测确认的性能上限。演示任务和已暂停的真实任务不占运行名额。
+                  </p>
+                  <p>
                     服务使用 Cloudflare
                     Workers、D1与Cron保存并调度任务。体验空间由签名Cookie隔离，清除Cookie后进入新空间，不适合作为生产级身份认证。
                   </p>
                 </section>
                 <div className="help-service">
                   <b>当前服务</b>
-                  <span>模型 {health?.model ?? "读取中"}</span>
+                  <span>模型调用名 {health?.model ?? "读取中"}</span>
                   <span>
                     扶摇数据 {health?.dataConfigured ? "已配置" : "未配置"}
                   </span>
