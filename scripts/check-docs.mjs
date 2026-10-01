@@ -238,6 +238,22 @@ if (packageRoot) {
       fs.statSync(videoFile).size !== manifest.video.sizeBytes)
   )
     failures.push("视频信息、时长或提交状态与实际文件不一致");
+  if (!videoPending && fs.existsSync(videoFile)) {
+    const actualSHA256 = crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(videoFile))
+      .digest("hex");
+    if (manifest.video.sha256 !== actualSHA256)
+      failures.push("视频SHA-256与交付清单不一致");
+    if (manifest.video.reviewFile) {
+      const review = fs.readFileSync(
+        path.join(packageRoot, manifest.video.reviewFile),
+        "utf8",
+      );
+      if (!review.includes(`视频SHA-256：\`${actualSHA256}\``))
+        failures.push("视频导览与实际成片不一致");
+    }
+  }
   const listedFiles = new Set(manifest.files.map((entry) => entry.file));
   if (
     listedFiles.size !== manifest.files.length ||

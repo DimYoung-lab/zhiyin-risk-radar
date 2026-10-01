@@ -154,6 +154,18 @@ if (options.video) {
     contentReview:
       "需观看确认操作覆盖、文字可读性及真实/演示标签；技术检查不替代内容核对",
   };
+  video.sha256 = sha256(options.video);
+  const reviewFile = "docs/VIDEO_REVIEW.md";
+  if (fs.existsSync(path.join(root, reviewFile))) {
+    const review = fs.readFileSync(path.join(root, reviewFile), "utf8");
+    if (!review.includes(`视频SHA-256：\`${video.sha256}\``))
+      throw new Error(
+        "待打包视频与视频导览记录不一致，请复核并更新说明后重新整理。",
+      );
+    video.reviewFile = reviewFile;
+    video.contentReview =
+      "元数据与原尺寸关键帧已核对；具体覆盖和未完整展示的流程见视频导览，不冒称逐帧审查或额外后端测试";
+  }
 }
 
 const temp = fs.mkdtempSync(path.join(submissions, ".prepare-"));
@@ -206,8 +218,11 @@ try {
       (_, before, target, after) =>
         before + path.posix.join("docs", target) + after,
     );
+  const reviewStatus = video.reviewFile
+    ? "元数据与关键画面核对完成，实际覆盖见[视频导览](docs/VIDEO_REVIEW.md)。"
+    : "技术格式检查通过；请观看确认操作覆盖与文字可读性。";
   const status = options.video
-    ? `**视频已加入：${video.durationSeconds} 秒，${video.width} × ${video.height}。** 技术格式检查通过；请观看确认操作覆盖与文字可读性。最终上传包含全部材料和视频的一个ZIP，小于30MB。`
+    ? `**视频已加入：${video.durationSeconds} 秒，${video.width} × ${video.height}。** ${reviewStatus}最终上传包含全部材料和视频的一个ZIP，小于30MB。`
     : "**尚缺用户新版录屏；此目录暂不可直接作为完整答案提交。** 请按docs/RECORDING_GUIDE.md录制60–180秒成片；提供文件位置后更新材料。旧视频没有加入本目录。";
   intro =
     `# 当前材料状态\n\n${status}\n\n源码版本：\`${gitCommit}\`。文件清单见\`delivery-manifest.json\`。\n\n` +
@@ -242,8 +257,9 @@ try {
     sourceRepository: "https://github.com/DimYoung-lab/zhiyin-risk-radar",
     workerVersion: ui.workerVersion,
     readyForSubmission: Boolean(options.video),
-    readinessScope:
-      "文件齐全与技术校验；视频内容须人工观看确认，最终ZIP须小于30MB",
+    readinessScope: video.reviewFile
+      ? "文件齐全与技术校验；视频关键画面核对范围见视频导览，最终ZIP须小于30MB"
+      : "文件齐全与技术校验；视频内容须人工观看确认，最终ZIP须小于30MB",
     outstandingItems: options.video ? [] : ["用户录制的60–180秒新版演示视频"],
     verification: {
       unitTests: {
