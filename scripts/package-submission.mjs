@@ -171,8 +171,10 @@ if (options.video) {
 
 const temp = fs.mkdtempSync(path.join(submissions, ".prepare-"));
 const staging = path.join(temp, "materials");
-const sourceZip = path.join(submissions, `知因雷达_${productVersion}_源码.zip`);
-const finalZip = `${dir}_完整提交.zip`;
+const finalZip = path.join(
+  submissions,
+  `知因雷达_${productVersion}_完整提交.zip`,
+);
 let archiveSize = null;
 try {
   fs.mkdirSync(staging);
@@ -240,7 +242,7 @@ try {
   for (const file of files) {
     const name = path.relative(staging, file);
     if (
-      /(^|\/)(node_modules|\.git|\.wrangler|output|artifacts|record-profile)(\/|$)|(^|\/)\.dev\.vars|(^|\/)\.env(?!\.example$)|\.(webm|mov|mkv|zip|log)$|候选人附件_|01_AI驱动|13_投资/.test(
+      /(^|\/)(node_modules|\.git|\.wrangler|output|artifacts|reference|record-profile)(\/|$)|(^|\/)\.dev\.vars|(^|\/)\.env(?!\.example$)|\.(webm|mov|mkv|zip|log)$|候选人附件_|01_AI驱动|13_投资/.test(
         name,
       )
     )
@@ -346,15 +348,6 @@ try {
   run(process.execPath, ["scripts/check-docs.mjs", staging], {
     stdio: "inherit",
   });
-  const stagedSourceZip = path.join(temp, "source.zip");
-  run("git", [
-    "archive",
-    "--format=zip",
-    `--output=${stagedSourceZip}`,
-    gitCommit,
-  ]);
-  ensureZipUTF8(stagedSourceZip);
-  run("unzip", ["-tqq", stagedSourceZip]);
   let stagedFinalZip;
   if (options.zip) {
     const zipRoot = path.join(temp, "archive");
@@ -373,11 +366,6 @@ try {
   }
   fs.rmSync(dir, { recursive: true, force: true });
   fs.renameSync(staging, dir);
-  fs.copyFileSync(stagedSourceZip, sourceZip);
-  fs.writeFileSync(
-    `${sourceZip}.sha256`,
-    `${sha256(sourceZip)}  ${path.basename(sourceZip)}\n`,
-  );
   // Prevent a previous final ZIP being mistaken for this newly prepared material.
   fs.rmSync(finalZip, { force: true });
   fs.rmSync(`${finalZip}.sha256`, { force: true });
@@ -392,9 +380,6 @@ try {
     JSON.stringify(
       {
         directory: dir,
-        sourceZip,
-        sourceZipBytes: fs.statSync(sourceZip).size,
-        sourceZipSHA256: sha256(sourceZip),
         gitCommit,
         fileCount: manifest.files.length + 1,
         materialBytes: walk(dir).reduce(

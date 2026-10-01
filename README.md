@@ -104,6 +104,26 @@ npm run check:docs       # 检查文档中的本地链接
 
 ## 笔试材料整理
 
+项目目录按用途组织：
+
+```text
+同花顺笔试/
+├── src/          # 前端、Worker API、规则引擎与数据适配器
+├── migrations/   # D1数据库迁移
+├── tests/        # 自动测试源码
+├── scripts/      # 验证、交叉引用检查与提交打包工具
+├── docs/         # 计划、设计、AI记录、评审说明及有效截图
+├── artifacts/    # 本机实际验证报告，打包时复制到verification/
+├── reference/    # 私人原始题目附件，不入Git或提交包
+└── submission/   # 最终提交材料
+    ├── 待提交_知因雷达_v0.1.0/       # 源码、说明、验证材料与原始成片
+    ├── 知因雷达_v0.1.0_完整提交.zip  # 上传这一份ZIP即可
+    ├── 知因雷达_v0.1.0_完整提交.zip.sha256
+    └── 最终提交核验.json
+```
+
+根目录保留包管理、TypeScript、Vite、Wrangler及环境配置。`node_modules/`是本项目依赖，`dist/`是可重新构建的静态页面；隐藏的`.wrangler/`保存本地数据库与运行状态，本地凭证也继续保留。它们均不入Git或提交包。旧录屏、临时浏览器日志、无引用截图及重复归档已清理。
+
 提交目录包括源码、本文、设计说明、AI使用与验证记录、测试说明、实际报告及截图；在线URL和仓库地址写在目录根部的提交说明中。新版100.899秒录屏已由用户完成，满足60–180秒要求；实际覆盖与核对记录见[视频导览](docs/VIDEO_REVIEW.md)。
 
 ```bash
@@ -112,7 +132,7 @@ npm run package:submission -- --video /绝对路径/新录屏.mp4 # 校验新成
 npm run check:docs -- submission/待提交_知因雷达_v0.1.0
 ```
 
-整理命令要求Git工作区已提交，并使用本次实际执行的`artifacts/`报告（也可用`--evidence /报告目录`读取已有交付目录的`verification/`）。它生成`submission/待提交_知因雷达_v0.1.0/`和独立源码ZIP；视频完成后可加`--zip`生成并检查最终提交ZIP。视频未完成时清单明确标记待录制，不生成可误当完整提交物的最终ZIP。详见[交付说明](docs/DELIVERY.md)。
+整理命令要求Git工作区已提交，并使用本次实际执行的`artifacts/`报告（也可用`--evidence /报告目录`读取已有交付目录的`verification/`）。它生成`submission/待提交_知因雷达_v0.1.0/`；视频完成后可加`--zip`生成并检查`submission/知因雷达_v0.1.0_完整提交.zip`。完整包已含源码，不再额外生成重复源码ZIP。视频未完成时清单明确标记待录制，不生成可误当完整提交物的最终ZIP。详见[交付说明](docs/DELIVERY.md)。
 
 ## 部署到自己的 Cloudflare
 
