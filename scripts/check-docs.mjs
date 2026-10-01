@@ -43,6 +43,18 @@ if (packageRoot) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(packageRoot, "delivery-manifest.json"), "utf8"),
   );
+  const project = JSON.parse(
+    fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+  );
+  const lock = JSON.parse(
+    fs.readFileSync(path.join(packageRoot, "package-lock.json"), "utf8"),
+  );
+  if (
+    project.version !== lock.version ||
+    project.version !== lock.packages[""].version ||
+    manifest.productVersion !== `v${project.version}`
+  )
+    failures.push("产品版本与依赖锁文件或交付清单不一致");
   const unit = JSON.parse(
     fs.readFileSync(
       path.join(packageRoot, "verification/unit-test-report.json"),
@@ -94,7 +106,8 @@ if (packageRoot) {
       ux.onlineRetest.passed ||
     manifest.verification.userExperienceReview.total !==
       ux.onlineRetest.total ||
-    manifest.workerVersion !== ux.workerVersion ||
+    manifest.verification.userExperienceReview.testedWorkerVersion !==
+      ux.workerVersion ||
     ux.cleanup.mainAgent.remainingTasks !== 0 ||
     ux.cleanup.mainAgent.remainingAlerts !== 0
   )

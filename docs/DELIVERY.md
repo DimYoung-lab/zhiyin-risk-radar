@@ -2,6 +2,8 @@
 
 作品：**知因雷达——可配置投资监控与风险雷达**。
 
+产品版本：**v0.1.0**。按题目要求重新录制时，可使用 [产品演示操作顺序](RECORDING_GUIDE.md)；现有168秒视频暂时保留，收到新录屏后再更新视频、段落说明与文件校验值。
+
 - 在线产品：[打开知因雷达](https://zhiyin-risk-radar.dimyoung-0719.workers.dev)
 - 源码仓库：[DimYoung-lab/zhiyin-risk-radar](https://github.com/DimYoung-lab/zhiyin-risk-radar)
 - 提交视频：压缩包根目录的 `演示视频.mp4`，**168 秒（2 分 48 秒）**，1280 × 900，H.264，中文字幕。

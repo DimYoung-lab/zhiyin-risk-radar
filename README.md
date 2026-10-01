@@ -1,5 +1,7 @@
 # 知因雷达
 
+当前产品版本：**v0.1.0**。任务中的v1、v2表示规则修订版本。
+
 同花顺 AI 笔试第一题「可配置投资监控与风险雷达」。把一句关注点变成可核对的规则，持续检查，并说明为什么提醒、没有提醒或暂时无法判断。
 
 **在线产品：[zhiyin-risk-radar.dimyoung-0719.workers.dev](https://zhiyin-risk-radar.dimyoung-0719.workers.dev)**

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { version as appVersion } from "../../package.json";
 import {
   Radar,
   Activity,
@@ -2038,7 +2039,7 @@ function App() {
           )}
           <footer className="page-footer">
             <span>条件监控与研究信息，不构成交易建议。</span>
-            <span>知因雷达 · 公开体验版</span>
+            <span>知因雷达 · v{appVersion} · 公开体验版</span>
           </footer>
         </main>
       </div>
