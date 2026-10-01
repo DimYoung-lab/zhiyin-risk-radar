@@ -106,3 +106,9 @@ RADAR_TEST_URL=https://zhiyin-risk-radar.dimyoung-0719.workers.dev npm run test:
 ## 尚未验证的范围
 
 未验证大规模用户、长期数据保留、服务商连续故障数天、完整节假日跨期、邮件 / 推送、登录同步和多来源数值一致性。未宣称实时行情级别 SLA，Cron 和接口延迟可能造成延后；实际运行记录可以核对延迟。
+
+## 最终材料核验
+
+用户100.899秒录屏的元数据、关键帧与真实数字定位见[VIDEO_REVIEW.md](VIDEO_REVIEW.md)。整理脚本检查源码版本、报告一致性、交叉引用、逐文件SHA-256、凭证排除、视频60–180秒范围、ZIP完整性及小于30MB限制；原视频内容不变。
+
+发现本机压缩工具写入UTF-8文件名字节但缺少编码标记，已依照[PKWARE ZIP格式规范](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT)在本地文件头和中央目录中标明UTF-8。仅修改编码标记，压缩数据和CRC32不变；对测试归档重复处理及完整性检查通过，最终ZIP再次核验。收尾检查属于提交材料验证，没有新增或冒称重新执行47项产品测试、33项API检查及原Cron记录。

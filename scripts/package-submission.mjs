@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { ensureZipUTF8 } from "./zip-utf8.mjs";
 
 const root = process.cwd();
 const options = {
@@ -322,6 +323,7 @@ try {
     },
     video,
     uploadLimitBytes: 30_000_000,
+    archiveFileNameEncoding: "UTF-8",
     credentialScan: {
       result: "passed",
       localKnownSecretValuesChecked: secrets.length > 0,
@@ -351,6 +353,7 @@ try {
     `--output=${stagedSourceZip}`,
     gitCommit,
   ]);
+  ensureZipUTF8(stagedSourceZip);
   run("unzip", ["-tqq", stagedSourceZip]);
   let stagedFinalZip;
   if (options.zip) {
@@ -362,6 +365,7 @@ try {
     run("zip", ["-q", "-r", "-X", stagedFinalZip, path.basename(dir)], {
       cwd: zipRoot,
     });
+    ensureZipUTF8(stagedFinalZip);
     run("unzip", ["-tqq", stagedFinalZip]);
     archiveSize = fs.statSync(stagedFinalZip).size;
     if (archiveSize >= 30_000_000)
