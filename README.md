@@ -70,7 +70,7 @@ AI **不参与周期性判断、不自动启用任务、不生成实时数字、
 
 已完成规则引擎、客户端错误处理和金融 / 模型适配器的 **47 项自动测试**，以及实际 Worker / D1 上的 **33 项端到端 API 验证**，最终均通过。后台调度另用真实金融数据进行独立验收：创建定时任务后客户端进程退出，稍后读取 `kind=cron` 的持久化记录。
 
-具体执行时间、结果、验证范围及复现命令见 [TESTING.md](docs/TESTING.md)。提交包附运行报告和实际产品录屏，演示中的异常与冷却数据明确标注为构造场景。
+具体执行时间、结果、验证范围及复现命令见 [TESTING.md](docs/TESTING.md)。提交材料附实际运行报告；新版录屏由用户完成，演示中的异常与冷却数据须明确标注为构造场景。最终交付状态见 [DELIVERY.md](docs/DELIVERY.md)。
 
 ## 本地运行
 
@@ -101,6 +101,18 @@ npm run verify           # 测试、TypeScript 与生产构建
 npm run test:integration # 本地 Worker 已运行且真实凭证已配置时执行
 npm run check:docs       # 检查文档中的本地链接
 ```
+
+## 笔试材料整理
+
+提交目录包括源码、本文、设计说明、AI使用与验证记录、测试说明、实际报告及截图；在线URL和仓库地址写在目录根部的提交说明中。新版录屏由用户按[产品操作顺序](docs/RECORDING_GUIDE.md)完成，成片必须60–180秒。
+
+```bash
+npm run package:submission                        # 整理已提交的源码与现有验证报告，不带旧视频
+npm run package:submission -- --video /绝对路径/新录屏.mp4 # 校验新成片，更新交付目录及SHA-256
+npm run check:docs -- submission/待提交_知因雷达_v0.1.0
+```
+
+整理命令要求Git工作区已提交，并使用本次实际执行的`artifacts/`报告（也可用`--evidence /报告目录`读取已有交付目录的`verification/`）。它生成`submission/待提交_知因雷达_v0.1.0/`和独立源码ZIP；视频完成后可加`--zip`生成并检查最终提交ZIP。视频未完成时清单明确标记待录制，不生成可误当完整提交物的最终ZIP。详见[交付说明](docs/DELIVERY.md)。
 
 ## 部署到自己的 Cloudflare
 

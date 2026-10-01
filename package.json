@@ -15,7 +15,8 @@
     "verify": "npm run test && npm run build",
     "test:integration": "node scripts/integration.mjs",
     "check:docs": "node scripts/check-docs.mjs",
-    "format": "prettier --write src tests scripts"
+    "format": "prettier --write src tests scripts",
+    "package:submission": "node scripts/package-submission.mjs"
   },
   "dependencies": {
     "hono": "^4.13.12",

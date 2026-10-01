@@ -5,6 +5,12 @@ import crypto from "node:crypto";
 const root = process.cwd();
 const packageRoot = process.argv[2] ? path.resolve(process.argv[2]) : null;
 const docRoot = packageRoot ?? root;
+const manifest = packageRoot
+  ? JSON.parse(
+      fs.readFileSync(path.join(packageRoot, "delivery-manifest.json"), "utf8"),
+    )
+  : null;
+const videoPending = manifest?.video?.status === "pending";
 const walk = (dir) =>
   fs
     .readdirSync(dir, { withFileTypes: true })
@@ -34,15 +40,13 @@ for (const doc of docs) {
       /`(verification\/[\w.-]+\.json|演示视频\.mp4|delivery-manifest\.json)`/g,
     )) {
       ++packageReferences;
+      if (match[1] === "演示视频.mp4" && videoPending) continue;
       if (!fs.existsSync(path.join(packageRoot, match[1])))
         failures.push(`${path.relative(docRoot, doc)} → package:${match[1]}`);
     }
   }
 }
 if (packageRoot) {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(packageRoot, "delivery-manifest.json"), "utf8"),
-  );
   const project = JSON.parse(
     fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   );
@@ -78,6 +82,14 @@ if (packageRoot) {
     api.passed !== api.total ||
     manifest.verification.onlineApi.passed !== api.passed ||
     manifest.verification.onlineApi.total !== api.total ||
+    manifest.verification.onlineApi.at !== api.at ||
+    manifest.verification.onlineApi.testedWorkerVersion !== api.workerVersion ||
+    crypto
+      .createHash("sha256")
+      .update(
+        fs.readFileSync(path.join(packageRoot, "src/server/providers.ts")),
+      )
+      .digest("hex") !== api.sourceAdapterSHA256 ||
     !api.base.startsWith("https://")
   )
     failures.push("线上 API 报告与交付清单不一致");
@@ -201,16 +213,47 @@ if (packageRoot) {
     )
       failures.push(`用户视角证据图缺失或校验不一致：${entry.file}`);
   }
-  const delivery = fs.readFileSync(
-    path.join(docRoot, "docs/DELIVERY.md"),
-    "utf8",
-  );
-  if (!delivery.includes(`${manifest.video.durationSeconds} 秒`))
-    failures.push("视频时长与交付说明不一致");
+  const intro = fs.readFileSync(path.join(docRoot, "00_提交说明.md"), "utf8");
+  const videoFile = path.join(packageRoot, "演示视频.mp4");
+  if (videoPending) {
+    if (
+      manifest.readyForSubmission !== false ||
+      !manifest.outstandingItems?.length ||
+      fs.existsSync(videoFile) ||
+      !intro.includes("尚缺用户新版录屏")
+    )
+      failures.push(
+        "待录屏状态与材料不一致；加入视频后须重新整理元数据与校验清单",
+      );
+  } else if (
+    manifest.video.status !== "included" ||
+    manifest.readyForSubmission !== true ||
+    manifest.outstandingItems?.length !== 0 ||
+    !fs.existsSync(videoFile) ||
+    !Number.isFinite(manifest.video.durationSeconds) ||
+    manifest.video.durationSeconds < 60 ||
+    manifest.video.durationSeconds > 180 ||
+    !intro.includes(`${manifest.video.durationSeconds} 秒`) ||
+    (fs.existsSync(videoFile) &&
+      fs.statSync(videoFile).size !== manifest.video.sizeBytes)
+  )
+    failures.push("视频信息、时长或提交状态与实际文件不一致");
+  const listedFiles = new Set(manifest.files.map((entry) => entry.file));
+  if (
+    listedFiles.size !== manifest.files.length ||
+    listedFiles.has("delivery-manifest.json")
+  )
+    failures.push("文件清单重复或包含自身，不能有效校验");
+  for (const file of walk(packageRoot)) {
+    const name = path.relative(packageRoot, file).split(path.sep).join("/");
+    if (name !== "delivery-manifest.json" && !listedFiles.has(name))
+      failures.push(`交付目录含未登记文件：${name}`);
+  }
   for (const entry of manifest.files) {
     const file = path.join(packageRoot, entry.file);
     if (!fs.existsSync(file)) failures.push(`交付文件缺失：${entry.file}`);
     else if (
+      fs.statSync(file).size !== entry.sizeBytes ||
       crypto
         .createHash("sha256")
         .update(fs.readFileSync(file))
@@ -225,6 +268,14 @@ console.log(
       documents: docs.length,
       internalLinks: links,
       packageReferences,
+      ...(manifest
+        ? {
+            materialChecks: failures.length ? "failed" : "passed",
+            readyForSubmission: manifest.readyForSubmission,
+            outstandingItems: manifest.outstandingItems,
+            readinessScope: manifest.readinessScope,
+          }
+        : {}),
       failures,
     },
     null,

@@ -19,6 +19,9 @@ output/
 submission/
 *.mp4
 *.webm
+*.mov
+*.mkv
+*.m4v
 *.zip
 *.log
 
