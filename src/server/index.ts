@@ -18,6 +18,7 @@ import {
   createTask,
   editTask,
   toggleTask,
+  deleteTask,
   runTask,
   tick,
   listTasks,
@@ -242,7 +243,13 @@ app.get("/api/tasks/:id/runs/:runId", async (c) => {
   const task = await getTask(c.env.DB, c.req.param("id"), c.get("workspace"));
   return c.json(await getRun(c.env.DB, task.id, c.req.param("runId")));
 });
+app.delete("/api/tasks/:id", async (c) => {
+  await body(c.req.raw);
+  await deleteTask(c.env, c.get("workspace"), c.req.param("id"));
+  return c.json({ deleted: true });
+});
 app.patch("/api/tasks/:id", async (c) => {
+  await getTask(c.env.DB, c.req.param("id"), c.get("workspace"));
   const input = await body(c.req.raw);
   if (!Number.isInteger(input.previousVersion))
     throw new AppError("需要提供原版本号");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Radar,
@@ -23,6 +23,7 @@ import {
   X,
   LoaderCircle,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import {
   fieldLabels,
@@ -692,6 +693,10 @@ function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const refreshSequence = useRef(0);
   const [targetRun, setTargetRun] = useState<string | null>(null);
   const [linkedRun, setLinkedRun] = useState<Run | null>(null);
   const [editor, setEditor] = useState<{
@@ -714,13 +719,31 @@ function App() {
   );
   const refresh = useCallback(
     async (id?: string | null) => {
+      const sequence = ++refreshSequence.current;
       const r = await api<{ tasks: Task[]; alerts: Alert[] }>("/tasks");
+      if (sequence !== refreshSequence.current) return;
       setTasks(r.tasks);
       setAlerts(r.alerts);
       setLoaded(true);
       const chosen = id === undefined ? selected : id;
-      if (chosen) setDetail(await api<Detail>("/tasks/" + chosen));
-      setHealth(await api<Health>("/health"));
+      if (chosen) {
+        try {
+          const next = await api<Detail>("/tasks/" + chosen);
+          if (
+            sequence === refreshSequence.current &&
+            chosen === selectedRef.current
+          )
+            setDetail(next);
+        } catch (error) {
+          if (
+            sequence === refreshSequence.current &&
+            chosen === selectedRef.current
+          )
+            throw error;
+        }
+      }
+      const nextHealth = await api<Health>("/health");
+      if (sequence === refreshSequence.current) setHealth(nextHealth);
     },
     [selected],
   );
@@ -732,12 +755,21 @@ function App() {
     return () => clearInterval(timer);
   }, [refresh]);
   useEffect(() => {
+    let cancelled = false;
+    setDeleteConfirm(null);
     if (selected) {
       setDetail(null);
       void api<Detail>("/tasks/" + selected)
-        .then(setDetail)
-        .catch((e) => setError(e.message));
+        .then((next) => {
+          if (!cancelled) setDetail(next);
+        })
+        .catch((e) => {
+          if (!cancelled) setError(e.message);
+        });
     } else setDetail(null);
+    return () => {
+      cancelled = true;
+    };
   }, [selected]);
   useEffect(() => {
     if (detail?.task.id === selected)
@@ -807,6 +839,8 @@ function App() {
       setEditor(null);
       setCompose(false);
       setParseInfo(null);
+      setFilter("all");
+      setDetailTab("latest");
       setTargetRun(null);
       setSelected(r.task.id);
       await refresh(r.task.id);
@@ -829,6 +863,8 @@ function App() {
       setEditor(null);
       const r = await api<{ task: Task }>("/demo", "POST", {});
       setTargetRun(null);
+      setFilter("all");
+      setDetailTab("latest");
       setSelected(r.task.id);
       setView("tasks");
       await api("/tasks/" + r.task.id + "/demo", "POST", {
@@ -836,6 +872,23 @@ function App() {
       });
       await refresh(r.task.id);
       setNotice("隔离演示已创建。可在详情中切换场景，所有数字均为构造数据。");
+    });
+  }
+  async function removeTask(task: Task) {
+    await runWork(async () => {
+      await api("/tasks/" + task.id, "DELETE", {});
+      ++refreshSequence.current;
+      selectedRef.current = null;
+      setSelected(null);
+      setDetail(null);
+      setTargetRun(null);
+      setLinkedRun(null);
+      setDeleteConfirm(null);
+      if (editor?.taskId === task.id) setEditor(null);
+      await refresh(null);
+      setNotice(
+        "任务已删除，后台检查已停止，关联的历史、版本和提醒已清理。任务额度已释放。",
+      );
     });
   }
   async function scenario(s: Scenario) {
@@ -957,7 +1010,7 @@ function App() {
                 onClick={() => void demo()}
               >
                 <Play aria-hidden="true" size={14} />
-                体验演示
+                新建演示
               </button>
               <button
                 className="button primary"
@@ -1173,20 +1226,29 @@ function App() {
                         {tasks.length ? "这个筛选下暂无任务" : "还没有监控任务"}
                       </h3>
                       <p>
-                        将关注的价格、热度或日期设成条件，
-                        <br />
-                        系统会持续检查并保留判断依据。
+                        {tasks.length ? (
+                          "切换筛选可以查看已有任务。"
+                        ) : (
+                          <>
+                            将关注的价格、热度或日期设成条件，
+                            <br />
+                            系统会持续检查并保留判断依据。
+                          </>
+                        )}
                       </p>
                       <div>
                         <button
                           className="button primary"
                           onClick={() => {
-                            setCompose(true);
-                            window.scrollTo({ top: 0, behavior: "smooth" });
+                            if (tasks.length) setFilter("all");
+                            else {
+                              setCompose(true);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }
                           }}
                         >
                           <Plus aria-hidden="true" size={15} />
-                          创建首个监控
+                          {tasks.length ? "查看全部任务" : "创建首个监控"}
                         </button>
                         <button
                           className="text-button"
@@ -1361,7 +1423,44 @@ function App() {
                           立即检查
                         </button>
                       )}
+                      <button
+                        className="button secondary small danger"
+                        disabled={busy}
+                        aria-expanded={deleteConfirm === detail.task.id}
+                        onClick={() => setDeleteConfirm(detail.task.id)}
+                      >
+                        <Trash2 aria-hidden="true" size={13} />
+                        删除任务
+                      </button>
                     </div>
+                    {deleteConfirm === detail.task.id && (
+                      <div
+                        className="delete-confirm"
+                        role="group"
+                        aria-label="确认删除任务"
+                      >
+                        <b>删除“{detail.task.title}”？</b>
+                        <p>
+                          将停止后台检查，并永久删除该任务的运行历史、规则版本和提醒。此操作无法撤销；仅需停止检查时请使用暂停。
+                        </p>
+                        <div>
+                          <button
+                            className="button secondary small"
+                            disabled={busy}
+                            onClick={() => setDeleteConfirm(null)}
+                          >
+                            取消删除
+                          </button>
+                          <button
+                            className="button small danger-confirm"
+                            disabled={busy}
+                            onClick={() => void removeTask(detail.task)}
+                          >
+                            确认删除
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {detail.task.mode === "demo" && (
                       <details className="scenario-box" open>
                         <summary>
@@ -1379,7 +1478,7 @@ function App() {
                           ))}
                         </div>
                         <p>
-                          使用同一执行引擎。冷却到期会推进演示时钟，真实任务不受影响。
+                          场景使用固定构造值，满足示例针对初始规则；修改后以实际比较结果为准。使用同一引擎，冷却到期会推进演示时钟。
                         </p>
                       </details>
                     )}
@@ -1408,6 +1507,12 @@ function App() {
                       {detailTab === "latest" &&
                         (latest?.result ? (
                           <>
+                            {latest.version !== detail.task.version && (
+                              <p className="version-warning" role="status">
+                                当前 v{detail.task.version} 尚未检查；下方为历史
+                                v{latest.version} 的检查结果。
+                              </p>
+                            )}
                             <div className="check-meta">
                               <span>
                                 {fmt(latest.startedAt)}
@@ -1458,8 +1563,18 @@ function App() {
                           <div className="empty compact">
                             <Clock aria-hidden="true" size={24} />
                             <h3>等待首次检查</h3>
-                            <p>下次自动检查：{fmt(detail.task.nextRunAt)}</p>
-                            <p>也可以使用“立即检查”读取当前数据。</p>
+                            <p>
+                              {!detail.task.enabled
+                                ? "任务已暂停，恢复后再检查。"
+                                : detail.task.mode === "demo"
+                                  ? "演示不参与自动调度，请点击上方场景检查。"
+                                  : "下次自动检查：" +
+                                    fmt(detail.task.nextRunAt)}
+                            </p>
+                            {detail.task.mode === "live" &&
+                              detail.task.enabled && (
+                                <p>也可以使用“立即检查”读取当前数据。</p>
+                              )}
                           </div>
                         ))}
                       {detailTab === "history" && (
@@ -1718,6 +1833,9 @@ function App() {
                   <p>
                     编辑生成新版本并保留原冷却期；暂停恢复检查当前数据，暂停期间不补造历史触发。每次检查保留规则版本、原字段、单位、来源和时点。
                   </p>
+                  <p>
+                    删除任务会停止检查并永久清理关联的历史、规则版本和提醒，需再次确认且无法撤销。需要保留记录时请使用暂停。
+                  </p>
                 </section>
                 <section id="boundaries">
                   <h2>体验版边界</h2>
@@ -1725,7 +1843,7 @@ function App() {
                     本作品只提供条件监控与投资研究信息，不提供买卖、仓位建议、涨跌预测、收益保证或自动交易。演示数据均为构造值，真实任务禁止注入演示场景。
                   </p>
                   <p>
-                    每个浏览器最多3个运行中的真实任务，全站12个；AI解析全站每天200次，每个浏览器每天20次。当前没有正式账号、跨设备同步、公告事件、指数、财务估值、邮件或推送。
+                    每个浏览器最多30个总任务（含演示和暂停），其中最多3个运行中的真实任务，全站12个。删除可释放总任务额度，暂停只释放运行额度。AI解析全站每天200次，每个浏览器每天20次。当前没有正式账号、跨设备同步、公告事件、指数、财务估值、邮件或推送。
                   </p>
                   <p>
                     服务使用 Cloudflare

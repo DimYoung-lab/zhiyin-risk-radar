@@ -801,6 +801,42 @@ input::placeholder {
   flex-wrap: wrap;
   padding: 17px 21px 19px;
 }
+.button.danger {
+  color: var(--red);
+}
+.delete-confirm {
+  margin: 0 21px 19px;
+  padding: 14px;
+  border: 1px solid #e1bfb9;
+  border-radius: var(--radius);
+  background: #fff9f7;
+  font-size: 12px;
+}
+.delete-confirm p {
+  margin: 7px 0 12px;
+  color: #735049;
+}
+.version-warning {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #e5d8ba;
+  border-radius: var(--radius);
+  background: #fcf8ed;
+  color: #785827;
+  font-size: 12px;
+}
+.delete-confirm > div {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.button.danger-confirm {
+  color: #fff;
+  background: var(--red);
+}
+.button.danger-confirm:hover {
+  background: #8c362c;
+}
 .scenario-box {
   border-top: 1px solid #e8e3d6;
   border-bottom: 1px solid #e8e3d6;

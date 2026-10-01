@@ -8,7 +8,7 @@
 |---|---|---|
 | 自动测试 | 46 / 46 通过 | `tests/engine.test.ts` 26 项、`tests/api.test.ts` 3 项、`tests/providers.test.ts` 17 项；规则 / 时间 / 去重 / 错误与适配器边界 |
 | 静态检查与构建 | 通过 | `npm run build` 执行 TypeScript 检查与 Vite 生产构建 |
-| 实际端到端 API | 27 / 27 通过 | 线上 Workers / D1、真实 DeepSeek 和扶摇；提交包 `verification/integration-report.json` |
+| 实际端到端 API | 33 / 33 通过 | 线上 Workers / D1、真实 DeepSeek 和扶摇；提交包 `verification/integration-report.json`；本地实际 Worker 同样通过，附 `verification/integration-local-report.json` |
 | 真实后台调度 | 通过 | 客户端进程退出后由线上 Cron 执行；提交包 `verification/cron-proof.json` |
 | 浏览器操作 | 已核验 | 自然语言草稿、真实预检、确认启用、任务详情、演示场景；桌面与 390px 手机布局 |
 
@@ -21,6 +21,10 @@
 服务在 **23:35:13** 开始一条 `kind=cron` 记录，**23:35:14.889** 完成。运行 ID：`34de3552-ddef-476c-9522-ce0df2718030`；结果为 `alert`、健康状态 `healthy`。该次扶摇返回价格 1258.62 元，证据保留接口、请求 ID、源时间、采集时间和原字段；该数字仅说明当次验收，不代表当前行情。
 
 完成时间晚于所有证据采集时间。观察结果后已暂停该验收任务。证明的是当前部署的真实后台执行与持久化，不等同于完成了数周或跨节假日的稳定性测试。
+
+删除与在途检查防护上线后再次独立验收：2026-10-01 08:57:30 创建任务，客户端进程退出；计划08:59，实际在 **08:59:13** 开始、**08:59:16.897** 完成 `kind=cron` 检查，结果 `alert / healthy`，运行 ID `8560161e-ab7c-4594-965a-99f18b3b9181`。新部署证据见 `verification/cron-latest-proof.json`；之前的成功证据仍保留。验收任务随后暂停。
+
+该次取数源时间表示快照就绪时间，不证明休市期间发生了新的股票成交，也不用于判断交易所是否开市。
 
 复现时运行：
 
@@ -47,6 +51,9 @@ node scripts/cron-proof.mjs inspect
 | 用旧版本编辑 | 409，要求刷新；避免覆盖其他修改 |
 | 4 个并发检查请求 | 由 D1 租约协调；成功或 409，同版本提醒不重复 |
 | 提醒与旧检查关联 | 自动展开提醒对应的运行，显示原版本与检查 ID；独立查询入口不受最近40条列表窗口限制，同样核验空间权限 |
+| 删除与额度恢复 | 跨空间删除404；删除后任务、检查入口和提醒消失，不能恢复 / 再检查；并发删除不复活；30个总任务上限下暂停仍满，删除后可新建 |
+
+2026-10-01 产品验收新增六项删除、权限、并发和满额恢复的真实 API 检查，使最终集成检查总数由27变为33。Vitest 配置仅扫描 `tests/**/*.test.ts`，排除打包源码中的测试副本，自动测试仍为46项，不重复计数。
 
 2026-10-01 的一次复测为 26 / 27：真实模型返回盘中计划 `at=null`，未通过 Schema，系统没有启用该草稿。复现确认该字段在盘中不参与执行后，新增非执行字段规范化与四项回归测试；daily 缺时刻、intraday 缺频率仍拒绝。失败原报告保留在提交包 `verification/integration-first-retrace.json`，最终复测结果以 `integration-report.json` 为准。
 
@@ -74,13 +81,16 @@ node scripts/cron-proof.mjs inspect
 conda activate zhiyin-risk-radar
 npm ci
 npm run verify
+npm run check:docs
 # 配置真实凭证，先启动 npm run dev:api。
 npm run test:integration
 # 也可验证指定线上部署。
 RADAR_TEST_URL=https://zhiyin-risk-radar.dimyoung-0719.workers.dev npm run test:integration
 ```
 
-集成脚本创建独立空间，最后暂停它创建的真实任务；报告写入 `artifacts/integration-report.json`，不输出凭证。演示测试不会消耗金融接口，真实解析和预检会使用服务额度。
+集成脚本创建独立空间，在真实执行后先暂停任务，再由删除验收清理；报告写入 `artifacts/integration-report.json`，不输出凭证。演示测试不会消耗金融接口，真实解析和预检会使用服务额度。
+
+新增删除验收会清理脚本创建的真实与演示任务，满额测试的30个临时任务在 `finally` 中删除，不操作其他浏览器空间。
 
 ## 尚未验证的范围
 

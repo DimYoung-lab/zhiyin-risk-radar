@@ -14,6 +14,7 @@
     "deploy": "npm run build && wrangler deploy",
     "verify": "npm run test && npm run build",
     "test:integration": "node scripts/integration.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "format": "prettier --write src tests scripts"
   },
   "dependencies": {

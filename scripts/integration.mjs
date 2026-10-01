@@ -315,6 +315,98 @@ await check("无效日期由后端拒绝", async () => {
   });
   assert.equal(r.status, 400);
 });
+await check("不能跨空间删除任务", async () => {
+  const r = await request("/tasks/" + id, "DELETE", {}, { isolated: true });
+  assert.equal(r.status, 404);
+  assert.equal((await request("/tasks/" + id)).status, 200);
+});
+await check("删除演示同时清理提醒、运行与版本入口", async () => {
+  assert.ok(
+    (await request("/tasks")).value.alerts.some((a) => a.taskId === id),
+  );
+  assert.equal((await request("/tasks/" + id, "DELETE", {})).status, 200);
+  const all = (await request("/tasks")).value;
+  assert.ok(!all.tasks.some((t) => t.id === id));
+  assert.ok(!all.alerts.some((a) => a.taskId === id));
+  assert.equal((await request("/tasks/" + id)).status, 404);
+  assert.equal(
+    (await request("/tasks/" + id + "/runs/" + alertRunId)).status,
+    404,
+  );
+});
+await check("删除后的检查、恢复与重复删除均拒绝", async () => {
+  assert.equal(
+    (await request("/tasks/" + id + "/demo", "POST", { scenario: "matched" }))
+      .status,
+    404,
+  );
+  assert.equal(
+    (await request("/tasks/" + id + "/actions", "POST", { action: "resume" }))
+      .status,
+    404,
+  );
+  assert.equal((await request("/tasks/" + id, "DELETE", {})).status, 404);
+});
+await check("真实任务删除停止执行并释放列表额度", async () => {
+  assert.ok(liveId);
+  assert.equal((await request("/tasks/" + liveId, "DELETE", {})).status, 200);
+  assert.equal(
+    (await request("/tasks/" + liveId + "/actions", "POST", { action: "run" }))
+      .status,
+    404,
+  );
+  assert.ok(
+    !(await request("/tasks")).value.tasks.some((t) => t.id === liveId),
+  );
+});
+await check("并发检查与删除不会复活任务或残留提醒", async () => {
+  const created = await request("/demo", "POST", {});
+  assert.equal(created.status, 201);
+  const deletingId = created.value.task.id;
+  const [run, removed] = await Promise.all([
+    request("/tasks/" + deletingId + "/demo", "POST", { scenario: "matched" }),
+    request("/tasks/" + deletingId, "DELETE", {}),
+  ]);
+  assert.equal(removed.status, 200);
+  assert.ok(
+    [200, 404, 409].includes(run.status),
+    "在途检查应完成或明确失去任务，不能返回500",
+  );
+  const all = (await request("/tasks")).value;
+  assert.ok(!all.tasks.some((t) => t.id === deletingId));
+  assert.ok(!all.alerts.some((a) => a.taskId === deletingId));
+  assert.equal((await request("/tasks/" + deletingId)).status, 404);
+});
+await check("总任务满额提示删除，暂停不能释放，删除后可再次创建", async () => {
+  const createdIds = [];
+  try {
+    const existing = (await request("/tasks")).value.tasks.length;
+    for (let i = existing; i < 30; i++) {
+      const r = await request("/demo", "POST", {});
+      assert.equal(r.status, 201);
+      createdIds.push(r.value.task.id);
+    }
+    const full = await request("/demo", "POST", {});
+    assert.equal(full.status, 409);
+    assert.match(full.value.error, /删除/);
+    await request("/tasks/" + createdIds[0] + "/actions", "POST", {
+      action: "pause",
+    });
+    assert.equal((await request("/demo", "POST", {})).status, 409);
+    assert.equal(
+      (await request("/tasks/" + createdIds[0], "DELETE", {})).status,
+      200,
+    );
+    createdIds.shift();
+    const replacement = await request("/demo", "POST", {});
+    assert.equal(replacement.status, 201);
+    createdIds.push(replacement.value.task.id);
+    assert.equal((await request("/tasks")).value.tasks.length, 30);
+  } finally {
+    for (const taskId of createdIds)
+      await request("/tasks/" + taskId, "DELETE", {});
+  }
+});
 mkdirSync("artifacts", { recursive: true });
 writeFileSync(
   "artifacts/integration-report.json",

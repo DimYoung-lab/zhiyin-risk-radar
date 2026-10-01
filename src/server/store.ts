@@ -185,12 +185,30 @@ export async function createTask(
       "INSERT INTO versions(task_id,version,rule_json,created_at) SELECT id,1,rule_json,created_at FROM tasks WHERE id=?",
     ).bind(id),
   ]);
-  if (!inserted[0].meta.changes)
+  if (!inserted[0].meta.changes) {
+    const total = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM tasks WHERE workspace=?",
+    )
+      .bind(workspace)
+      .first<{ count: number }>();
     throw new AppError(
-      "体验额度已满：每个浏览器最多3个运行中的真实任务、30个总任务；全站最多12个真实任务。请暂停已有任务",
+      total && total.count >= 30
+        ? "已达到30个总任务上限；请删除不再需要的任务后再创建。暂停不会释放总任务额度。"
+        : "运行中的真实任务已达上限：每个浏览器3个、全站12个。请暂停或删除已有真实任务后重试。",
       409,
     );
+  }
   return getTask(env.DB, id, workspace);
+}
+export async function deleteTask(env: Env, workspace: string, id: string) {
+  // One scoped DELETE atomically removes the task and its FK-linked history.
+  // In-flight checks lose their task / lease fence and cannot recreate alerts.
+  const result = await env.DB.prepare(
+    "DELETE FROM tasks WHERE id=? AND workspace=?",
+  )
+    .bind(id, workspace)
+    .run();
+  if (!result.meta.changes) throw new AppError("任务不存在或已删除", 404);
 }
 export async function editTask(
   env: Env,
@@ -302,9 +320,10 @@ export async function runTask(
     slot =
       kind === "cron" ? "cron:" + Math.floor(now / 60000) : kind + ":" + runId;
   const started = await env.DB.prepare(
-    `INSERT OR IGNORE INTO runs(id,task_id,version,slot,kind,started_at,status) VALUES(?,?,?,?,?,?,'running')`,
+    `INSERT OR IGNORE INTO runs(id,task_id,version,slot,kind,started_at,status)
+     SELECT ?,id,version,?,?,?,'running' FROM tasks WHERE id=? AND version=? AND lease_token=? AND enabled=1`,
   )
-    .bind(runId, id, task.version, slot, kind, now)
+    .bind(runId, slot, kind, now, id, task.version, token)
     .run();
   if (!started.meta.changes) {
     await env.DB.prepare(
