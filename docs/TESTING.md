@@ -6,17 +6,22 @@
 
 | 验证层 | 结果 | 证据与范围 |
 |---|---|---|
-| 自动测试 | 46 / 46 通过 | `tests/engine.test.ts` 26 项、`tests/api.test.ts` 3 项、`tests/providers.test.ts` 17 项；规则 / 时间 / 去重 / 错误与适配器边界 |
+| 自动测试 | 47 / 47 通过 | `tests/engine.test.ts` 26 项、`tests/api.test.ts` 3 项、`tests/providers.test.ts` 18 项；规则 / 时间 / 去重 / 错误与适配器边界 |
 | 静态检查与构建 | 通过 | `npm run build` 执行 TypeScript 检查与 Vite 生产构建 |
 | 实际端到端 API | 33 / 33 通过 | 线上 Workers / D1、真实 DeepSeek 和扶摇；提交包 `verification/integration-report.json`；本地实际 Worker 同样通过，附 `verification/integration-local-report.json` |
 | 真实后台调度 | 通过 | 客户端进程退出后由线上 Cron 执行；提交包 `verification/cron-proof.json` |
 | 浏览器操作 | 已核验 | 自然语言草稿、真实预检、确认启用、任务详情、演示场景；桌面与 390px 手机布局 |
+| 模型配置评估 | 两模式各6 / 6，最终配置6 / 6通过 | 真实DeepSeek调用，固定语义检查；提交包 `verification/model-config-comparison.json` 与 `verification/model-config-selected.json` |
 
 单元测试中的接口故障采用模拟 Response / 网络拒绝，检验实际适配器，不代表真的让金融服务宕机。端到端演示故障使用明确标注的 fixture，沿用真实任务相同的引擎与持久化。真实接口与模型成功链路另外执行，不用 fixture 冒充。
 
 2026-10-01 12:14（上海时间）前端补充修复后重新执行46项自动测试，全部通过，TypeScript与Vite构建通过。12:23–12:30主 Agent 在线上完成四项交互回归及v2保存、暂停恢复、去重、提醒追溯、删除取消/确认；独立用户视角 Agent 已完成相同四项的本地复核。详细证据见 [UX_REVIEW.md](UX_REVIEW.md) 与提交包 `verification/ux-review-report.json`。
 
 该轮预检与解析的5秒延迟响应为合成界面场景，未实际请求上游模型或金融接口；手机保存校验、版本、暂停和提醒使用真实线上API/D1。原有本地与线上各33项API报告以及08:59真实Cron记录是此前执行的后端证据。本轮没有修改后端，也没有将这些报告写成在前端修复后重跑。预期的热榜31校验HTTP400不是未处理的运行错误。
+
+后续模型配置评估于13:03重新执行47项自动测试，全部通过，TypeScript与Vite构建通过。新增用可解析JSON但 `finish_reason=length` 的模拟响应验证截断草稿仍被拒绝，不能误当完整规则；真实模型配置对比与取舍见 [AI_USAGE.md](AI_USAGE.md)。该边界故障使用模拟响应，并未故意耗尽真实模型额度。
+
+同日13:08:55完成新部署上的33/33项实际API复核，包含真实DeepSeek解析、证券消歧、金融预检和D1状态链路。最新 `verification/integration-report.json` 记录部署版本 `51831bae-c38c-4198-a488-101bf2acd72e` 及适配器源码哈希。本地API、真实Cron和浏览器UX报告仍保留此前执行时间；本次没有重新运行Cron或重复浏览器评审。
 
 ## 真实 Cron 证据
 
@@ -57,13 +62,13 @@ node scripts/cron-proof.mjs inspect
 | 提醒与旧检查关联 | 自动展开提醒对应的运行，显示原版本与检查 ID；独立查询入口不受最近40条列表窗口限制，同样核验空间权限 |
 | 删除与额度恢复 | 跨空间删除404；删除后任务、检查入口和提醒消失，不能恢复 / 再检查；并发删除不复活；30个总任务上限下暂停仍满，删除后可新建 |
 
-2026-10-01 产品验收新增六项删除、权限、并发和满额恢复的真实 API 检查，使最终集成检查总数由27变为33。Vitest 配置仅扫描 `tests/**/*.test.ts`，排除打包源码中的测试副本，自动测试仍为46项，不重复计数。
+2026-10-01 产品验收新增六项删除、权限、并发和满额恢复的真实 API 检查，使集成检查总数由27变为33。Vitest 配置仅扫描 `tests/**/*.test.ts`，排除打包源码中的测试副本，该阶段自动测试为46项；后续新增模型输出截断边界，使当前总数为47项，不重复计数。
 
 2026-10-01 的一次复测为 26 / 27：真实模型返回盘中计划 `at=null`，未通过 Schema，系统没有启用该草稿。复现确认该字段在盘中不参与执行后，新增非执行字段规范化与四项回归测试；daily 缺时刻、intraday 缺频率仍拒绝。失败原报告保留在提交包 `verification/integration-first-retrace.json`，最终复测结果以 `integration-report.json` 为准。
 
 ## 数据与接口异常
 
-自动测试覆盖 HTTP 失败、业务码失败、非 JSON 响应、网络拒绝 / 超时异常、超大响应，以及模型 HTTP 失败、超时、非法规则 JSON。错误说明可操作且不包含上游正文。浏览器遇到 HTML / 纯文本 503 时不会暴露 JSON 解析错误，而是提示重试。
+自动测试覆盖 HTTP 失败、业务码失败、非 JSON 响应、网络拒绝 / 超时异常、超大响应，以及模型 HTTP 失败、超时、非法规则 JSON 和输出截断。错误说明可操作且不包含上游正文。浏览器遇到 HTML / 纯文本 503 时不会暴露 JSON 解析错误，而是提示重试。
 
 引擎与适配器还覆盖：空价格不变成零、报价与前收盘价推算涨跌幅冲突、跨日 / 过期 / 未来异常时间、缺失当日交易日历、不完整热榜、完整 Top30 的榜外证券。依赖不足时返回 unknown；未支持的热榜第 31 名阈值和无效日期被服务端拒绝。
 

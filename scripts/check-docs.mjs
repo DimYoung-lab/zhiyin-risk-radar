@@ -81,6 +81,42 @@ if (packageRoot) {
     !api.base.startsWith("https://")
   )
     failures.push("线上 API 报告与交付清单不一致");
+  const selected = JSON.parse(
+    fs.readFileSync(
+      path.join(packageRoot, "verification/model-config-selected.json"),
+      "utf8",
+    ),
+  );
+  const comparison = JSON.parse(
+    fs.readFileSync(
+      path.join(packageRoot, "verification/model-config-comparison.json"),
+      "utf8",
+    ),
+  );
+  const modelVerification = manifest.verification.modelConfiguration;
+  const modelSummary = selected.summaries[0];
+  if (
+    selected.reasoningContentStored !== false ||
+    comparison.reasoningContentStored !== false ||
+    selected.results.length !== modelSummary.total ||
+    modelSummary.passed !== modelSummary.total ||
+    selected.results.some(
+      (item) => !item.passed || item.finishReason !== "stop",
+    ) ||
+    comparison.results.some((item) => !item.passed) ||
+    modelVerification?.passed !== modelSummary.passed ||
+    modelVerification?.total !== modelSummary.total ||
+    modelVerification?.at !== selected.at ||
+    JSON.stringify(modelVerification?.configuration) !==
+      JSON.stringify(selected.configurations.selected) ||
+    crypto
+      .createHash("sha256")
+      .update(
+        fs.readFileSync(path.join(packageRoot, selected.productionAdapter)),
+      )
+      .digest("hex") !== selected.adapterSHA256
+  )
+    failures.push("模型配置报告与适配器源码或交付清单不一致");
   const local = JSON.parse(
     fs.readFileSync(
       path.join(packageRoot, "verification/integration-local-report.json"),

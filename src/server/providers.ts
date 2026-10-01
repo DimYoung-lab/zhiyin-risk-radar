@@ -306,7 +306,9 @@ export async function parseIntent(env: Env, text: string) {
           { role: "user", content: text },
         ],
         response_format: { type: "json_object" },
+        // Bounded rule extraction is interactive; keep reasoning explicitly off.
         thinking: { type: "disabled" },
+        reasoning_effort: "none",
         max_tokens: 1800,
         temperature: 0.1,
       }),
@@ -322,7 +324,13 @@ export async function parseIntent(env: Env, text: string) {
     throw new AppError(`AI 解析暂不可用（HTTP ${r.status}），可手动配置`, 503);
   const response = record(await boundedJSON(r));
   const choices = Array.isArray(response.choices) ? response.choices : [];
-  const message = record(record(choices[0]).message);
+  const choice = record(choices[0]);
+  if (choice.finish_reason === "length")
+    throw new AppError(
+      "AI 输出达到长度上限，未生成完整草稿。请缩短描述后重试，或使用手动配置",
+      502,
+    );
+  const message = record(choice.message);
   let draft: Record<string, unknown>;
   try {
     draft = record(JSON.parse(String(message.content)));

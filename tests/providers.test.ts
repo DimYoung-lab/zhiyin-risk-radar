@@ -200,3 +200,25 @@ it("超大接口响应被有界读取拒绝", async () => {
     boundedJSON(new Response("x".repeat(1025)), 1024),
   ).rejects.toThrow("响应超过大小限制");
 });
+
+it("模型达到输出上限时，即使JSON可解析也不能当作完整草稿", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "length",
+                message: { content: JSON.stringify(demoRule) },
+              },
+            ],
+          }),
+        ),
+    ),
+  );
+  await expect(parseIntent(env, "贵州茅台跌幅达到3%时提醒我")).rejects.toThrow(
+    /长度上限.*手动配置/,
+  );
+});

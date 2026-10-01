@@ -26,7 +26,7 @@
 | 过期、冲突、接口失败的降级与解释 | 隔离演示、证据面板、适配器和引擎测试 |
 | 源码仓库与 README | 仓库地址和压缩包源码；`README.md` 说明用户、设计、AI、数据、运行方法和边界 |
 | 60–180 秒演示视频 | 根目录 `演示视频.mp4`，168 秒 |
-| AI 使用与验证记录 | `docs/AI_USAGE.md`、`verification/ai-verification.json`，以及真实模型异常的发现与修正记录 |
+| AI 使用与验证记录 | `docs/AI_USAGE.md`、`verification/ai-verification.json`，真实模型异常的发现与修正记录，以及两种思考配置的真实调用对比与最终配置复核 |
 | 主链路、数据 / API 异常、合规边界测试 | `docs/TESTING.md`、测试源码和 `verification/` 中的实际执行报告 |
 | 关键数字与结论可追溯 | 接口、单位、源时间、取数时间、原字段、证据 ID；提醒关联原版本的具体检查 |
 
@@ -48,7 +48,7 @@
 
 ## 实际验证与范围
 
-最终 **46 / 46 项自动测试、33 / 33 项线上 API 检查通过**，本地实际 Worker 同样 33 项通过，TypeScript 与生产构建通过。真实 Cron 在客户端进程退出后完成检查，初次与最终部署的执行记录分别保存在 `verification/cron-proof.json` 与 `verification/cron-latest-proof.json`。浏览器核验了桌面和 390px 手机布局、真实创建流程和演示流程。
+最终 **47 / 47 项自动测试、33 / 33 项线上 API 检查通过**，本地实际 Worker 此前同样 33 项通过，TypeScript 与生产构建通过。真实 Cron 在客户端进程退出后完成检查，两次执行记录分别保存在 `verification/cron-proof.json` 与 `verification/cron-latest-proof.json`。浏览器核验了桌面和 390px 手机布局、真实创建流程和演示流程。
 
 `verification/integration-first-retrace.json` 保留一次 26 / 27 的失败结果：模型给盘中计划返回了不参与执行的 `at=null`。修正只规范化该模式无关字段，没有猜测有效时间、频率或阈值。随后新增回归测试，并再次完成真实 API 验证；最终结果见 `integration-report.json`。
 
@@ -57,6 +57,8 @@
 计划逐项验收与独立产品裁判意见见 [AUDIT.md](AUDIT.md)，评分摘录见 `verification/product-audit-report.json`。评分为内部产品评审，不是同花顺的官方考试成绩。
 
 后续用户视角评审补齐未保存编辑保护、旧预检失效、取消后的迟到解析与手机保存错误反馈，四项均已部署并通过线上复核。步骤、截图和未采纳的可选需求见 [UX_REVIEW.md](UX_REVIEW.md)，机器证据见 `verification/ux-review-report.json`。该轮仅修改前端；33项API和真实Cron报告保留此前后端验证的执行时间，新增交互回归单独记录。视频仍为168秒真实主链路录屏，新增反馈见补充截图。
+
+模型配置评估继续采用非思考模式、1800 tokens、温度0.1与35秒超时，并显式设置 `reasoning_effort: none`，补充输出截断保护。两模式各6项真实调用对比和最终配置6项复核均通过，报告为 `verification/model-config-comparison.json` 与 `verification/model-config-selected.json`；设置依据和样本局限见 [AI_USAGE.md](AI_USAGE.md)。13:08:55新部署再次通过33项线上API检查，报告记录最新部署版本。Cron与用户视角报告保留各自原执行时间，不将其冒称为本次模型参数的重新验证。
 
 ## 包内目录
 
