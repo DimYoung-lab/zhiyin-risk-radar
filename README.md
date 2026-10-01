@@ -39,7 +39,9 @@
 
 盘中和收盘任务在执行时确认当天交易日。下一次时间仅表示检查计划，不预先假设未来日期开市。漏掉的历史检查不会被补造成真实触发。提醒目前只存储在应用内。
 
-更多说明见 [交付与视频说明](docs/DELIVERY.md)、[设计说明](docs/DESIGN.md)、[测试与复现](docs/TESTING.md)、[AI 使用与验证记录](docs/AI_USAGE.md)。最终产品评审与 plan 验收记录见 [AUDIT.md](docs/AUDIT.md)。
+编辑中的规则在离开前提示保留或放弃；修改规则后，旧预检失效并要求重新核对。关闭新建后的迟到解析不会重新打开草稿，保存失败的原因显示在编辑器内，手机上可直接看到并继续修正。
+
+更多说明见 [交付与视频说明](docs/DELIVERY.md)、[设计说明](docs/DESIGN.md)、[测试与复现](docs/TESTING.md)、[AI 使用与验证记录](docs/AI_USAGE.md)。产品评审与 plan 验收记录见 [AUDIT.md](docs/AUDIT.md)，后续四项必要交互修复与线上复核见 [用户视角评审](docs/UX_REVIEW.md)。
 
 ## AI 的角色
 

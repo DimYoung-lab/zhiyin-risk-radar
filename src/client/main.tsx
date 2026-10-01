@@ -275,20 +275,46 @@ function Editor({
   onClose,
   busy,
   editing,
+  onDirtyChange,
 }: {
   initial: Rule;
   onSave: (rule: Rule) => Promise<void>;
   onClose: () => void;
   busy: boolean;
   editing: boolean;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
-  const [rule, setRule] = useState<Rule>(structuredClone(initial));
+  const [rule, setRuleState] = useState<Rule>(structuredClone(initial));
   const [query, setQuery] = useState(initial.symbolName);
   const [items, setItems] = useState<{ symbol: string; name: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [previewNotice, setPreviewNotice] = useState("");
+  const previewSequence = useRef(0);
+  const ruleRef = useRef(rule);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  function setRule(next: Rule) {
+    ++previewSequence.current;
+    if (preview || checking)
+      setPreviewNotice("规则已修改，请重新预检当前数据。");
+    ruleRef.current = next;
+    setRuleState(next);
+    setPreview(null);
+    setChecking(false);
+    setError("");
+  }
+  useEffect(
+    () => () => {
+      ++previewSequence.current;
+    },
+    [],
+  );
+  useEffect(() => {
+    onDirtyChange(JSON.stringify(rule) !== JSON.stringify(initial));
+  }, [rule, initial, onDirtyChange]);
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
   const change = (index: number, patch: Partial<Condition>) => {
     setPreview(null);
     setRule({
@@ -314,14 +340,32 @@ function Editor({
     }
   }
   async function check() {
+    const sequence = ++previewSequence.current;
+    const fingerprint = JSON.stringify(rule);
     setChecking(true);
+    setPreview(null);
+    setPreviewNotice("");
     setError("");
     try {
-      setPreview(await api("/rules/preview", "POST", { rule }));
+      const next = await api<Preview>("/rules/preview", "POST", { rule });
+      if (
+        sequence === previewSequence.current &&
+        fingerprint === JSON.stringify(ruleRef.current)
+      )
+        setPreview(next);
+    } catch (e) {
+      if (sequence === previewSequence.current) setError((e as Error).message);
+    } finally {
+      if (sequence === previewSequence.current) setChecking(false);
+    }
+  }
+  async function submit() {
+    setError("");
+    try {
+      await onSave(rule);
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setChecking(false);
+      requestAnimationFrame(() => errorRef.current?.focus());
     }
   }
   return (
@@ -333,6 +377,7 @@ function Editor({
         <button
           className="icon-button"
           onClick={onClose}
+          disabled={busy}
           aria-label="关闭规则编辑器"
         >
           <X aria-hidden="true" size={19} />
@@ -644,8 +689,13 @@ function Editor({
         </div>
       </div>
       {error && (
-        <p className="inline-error" role="alert">
+        <p className="inline-error" role="alert" ref={errorRef} tabIndex={-1}>
           {error}
+        </p>
+      )}
+      {previewNotice && (
+        <p className="inline-error" role="status">
+          {previewNotice}
         </p>
       )}
       {preview && (
@@ -671,7 +721,7 @@ function Editor({
         <button
           className="button primary"
           disabled={busy || checking || !rule.symbol}
-          onClick={() => void onSave(rule)}
+          onClick={() => void submit()}
         >
           {busy ? (
             <LoaderCircle aria-hidden="true" className="spin" size={16} />
@@ -682,6 +732,54 @@ function Editor({
         </button>
       </div>
     </section>
+  );
+}
+
+function DiscardDialog({
+  onCancel,
+  onDiscard,
+}: {
+  onCancel: () => void;
+  onDiscard: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  const cancel = () => {
+    ref.current?.close();
+    onCancel();
+  };
+  const discard = () => {
+    ref.current?.close();
+    onDiscard();
+  };
+  return (
+    <dialog
+      ref={ref}
+      className="discard-dialog"
+      aria-labelledby="discard-title"
+      aria-describedby="discard-description"
+      onCancel={(event) => {
+        event.preventDefault();
+        cancel();
+      }}
+    >
+      <h2 id="discard-title">放弃未保存的修改？</h2>
+      <p id="discard-description">
+        修改尚未保存。继续离开会放弃当前编辑内容，已保存的任务规则不会改变。
+      </p>
+      <div className="discard-actions">
+        <button className="button secondary" autoFocus onClick={cancel}>
+          继续编辑
+        </button>
+        <button className="button danger-confirm" onClick={discard}>
+          放弃修改并继续
+        </button>
+      </div>
+    </dialog>
   );
 }
 
@@ -714,6 +812,39 @@ function App() {
   );
   const [loaded, setLoaded] = useState(false);
   const [compose, setCompose] = useState(false);
+  const parseSequence = useRef(0);
+  const dirtyRef = useRef(false);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [discard, setDiscard] = useState<{ proceed: () => void } | null>(null);
+  const onEditorDirty = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+    setEditorDirty(dirty);
+  }, []);
+  useEffect(() => {
+    if (!editorDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editorDirty]);
+  function leaveDraft(work: () => void) {
+    if (busy) return;
+    const proceed = () => {
+      ++parseSequence.current;
+      setParsing(false);
+      onEditorDirty(false);
+      setEditor(null);
+      setCompose(false);
+      setParseInfo(null);
+      setDiscard(null);
+      work();
+    };
+    if (dirtyRef.current) setDiscard({ proceed });
+    else proceed();
+  }
   const [filter, setFilter] = useState<"all" | "live" | "demo" | "paused">(
     "all",
   );
@@ -802,31 +933,40 @@ function App() {
     );
     return () => cancelAnimationFrame(frame);
   }, [linkedRun?.id, detail?.task.id, detailTab, selected]);
-  async function runWork(work: () => Promise<void>) {
+  async function runWork(work: () => Promise<void>, inlineError = false) {
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await work();
     } catch (e) {
+      if (inlineError) throw e;
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
   async function parse() {
+    const sequence = ++parseSequence.current;
     setParsing(true);
     setError("");
     setParseInfo(null);
     try {
       const r = await api<ParseResult>("/rules/parse", "POST", { text });
+      if (sequence !== parseSequence.current) return;
       setParseInfo(r);
       if (r.rule) setEditor({ rule: r.rule });
     } catch (e) {
-      setError((e as Error).message);
+      if (sequence === parseSequence.current) setError((e as Error).message);
     } finally {
-      setParsing(false);
+      if (sequence === parseSequence.current) setParsing(false);
     }
+  }
+  function updateIntent(next: string) {
+    ++parseSequence.current;
+    setParsing(false);
+    setParseInfo(null);
+    setText(next);
   }
   async function save(rule: Rule) {
     await runWork(async () => {
@@ -849,7 +989,7 @@ function App() {
           ? "新版本已保存。冷却截止时间保留，下一次检查采用新规则。"
           : "监控已启用，后台会按配置调度。",
       );
-    });
+    }, true);
   }
   async function action(task: Task, act: string) {
     await runWork(async () => {
@@ -921,7 +1061,18 @@ function App() {
         跳转到主要内容
       </a>
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="知因雷达首页">
+        <a
+          className="brand"
+          href="/"
+          aria-label="知因雷达首页"
+          onClick={(event) => {
+            event.preventDefault();
+            leaveDraft(() => {
+              setView("tasks");
+              setSelected(null);
+            });
+          }}
+        >
           <Radar aria-hidden="true" size={23} />
           <span>知因雷达</span>
         </a>
@@ -930,7 +1081,10 @@ function App() {
           <button
             className={view === "tasks" ? "nav-active" : ""}
             aria-current={view === "tasks" ? "page" : undefined}
-            onClick={() => setView("tasks")}
+            disabled={busy}
+            onClick={() => {
+              if (view !== "tasks") leaveDraft(() => setView("tasks"));
+            }}
           >
             <Layers aria-hidden="true" size={17} />
             监控任务{tasks.length > 0 && <span>{tasks.length}</span>}
@@ -938,7 +1092,10 @@ function App() {
           <button
             className={view === "alerts" ? "nav-active" : ""}
             aria-current={view === "alerts" ? "page" : undefined}
-            onClick={() => setView("alerts")}
+            disabled={busy}
+            onClick={() => {
+              if (view !== "alerts") leaveDraft(() => setView("alerts"));
+            }}
           >
             <Bell aria-hidden="true" size={17} />
             提醒中心{alerts.length > 0 && <span>{alerts.length}</span>}
@@ -946,7 +1103,10 @@ function App() {
           <button
             className={view === "about" ? "nav-active" : ""}
             aria-current={view === "about" ? "page" : undefined}
-            onClick={() => setView("about")}
+            disabled={busy}
+            onClick={() => {
+              if (view !== "about") leaveDraft(() => setView("about"));
+            }}
           >
             <FileText aria-hidden="true" size={17} />
             使用说明
@@ -1007,20 +1167,21 @@ function App() {
               <button
                 className="button secondary"
                 disabled={busy}
-                onClick={() => void demo()}
+                onClick={() => leaveDraft(() => void demo())}
               >
                 <Play aria-hidden="true" size={14} />
                 新建演示
               </button>
               <button
                 className="button primary"
-                onClick={() => {
-                  setView("tasks");
-                  setCompose(true);
-                  setEditor(null);
-                  setParseInfo(null);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+                disabled={busy}
+                onClick={() =>
+                  leaveDraft(() => {
+                    setView("tasks");
+                    setCompose(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  })
+                }
               >
                 <Plus aria-hidden="true" size={16} />
                 新建任务
@@ -1054,10 +1215,8 @@ function App() {
                     <button
                       className="icon-button"
                       aria-label="关闭新建任务"
-                      onClick={() => {
-                        setCompose(false);
-                        setEditor(null);
-                      }}
+                      disabled={busy}
+                      onClick={() => leaveDraft(() => {})}
                     >
                       <X aria-hidden="true" size={18} />
                     </button>
@@ -1068,33 +1227,41 @@ function App() {
                     aria-label="自然语言监控意图"
                     value={text}
                     maxLength={1200}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => updateIntent(e.target.value)}
                     placeholder="例如：贵州茅台跌幅达到3%，并进入热榜前10时提醒我"
                   />
                   <div className="compose-footer">
                     <div className="examples">
                       <span>示例</span>
-                      <button onClick={() => setText(sampleTexts[0])}>
+                      <button onClick={() => updateIntent(sampleTexts[0])}>
                         波动 + 热度组合
                       </button>
-                      <button onClick={() => setText(sampleTexts[1])}>
+                      <button onClick={() => updateIntent(sampleTexts[1])}>
                         指定价格条件
                       </button>
                     </div>
                     <div>
                       <button
                         className="text-button"
-                        onClick={() => {
-                          setEditor({ rule: blank });
-                          setParseInfo(null);
-                        }}
+                        disabled={busy}
+                        onClick={() =>
+                          leaveDraft(() => {
+                            setCompose(true);
+                            setEditor({ rule: blank });
+                          })
+                        }
                       >
                         手动配置
                       </button>
                       <button
                         className="button primary"
-                        disabled={parsing || text.trim().length < 4}
-                        onClick={() => void parse()}
+                        disabled={busy || parsing || text.trim().length < 4}
+                        onClick={() =>
+                          leaveDraft(() => {
+                            setCompose(true);
+                            void parse();
+                          })
+                        }
                       >
                         {parsing ? (
                           <LoaderCircle
@@ -1145,7 +1312,8 @@ function App() {
                   busy={busy}
                   editing={!!editor.taskId}
                   onSave={save}
-                  onClose={() => setEditor(null)}
+                  onDirtyChange={onEditorDirty}
+                  onClose={() => leaveDraft(() => setCompose(compose))}
                 />
               )}
               <div className="status-summary">
@@ -1239,12 +1407,14 @@ function App() {
                       <div>
                         <button
                           className="button primary"
+                          disabled={busy}
                           onClick={() => {
                             if (tasks.length) setFilter("all");
-                            else {
-                              setCompose(true);
-                              window.scrollTo({ top: 0, behavior: "smooth" });
-                            }
+                            else
+                              leaveDraft(() => {
+                                setCompose(true);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              });
                           }}
                         >
                           <Plus aria-hidden="true" size={15} />
@@ -1253,7 +1423,7 @@ function App() {
                         <button
                           className="text-button"
                           disabled={busy}
-                          onClick={() => void demo()}
+                          onClick={() => leaveDraft(() => void demo())}
                         >
                           先看演示
                           <ArrowRight aria-hidden="true" size={13} />
@@ -1269,13 +1439,14 @@ function App() {
                             (selected === t.id ? "task-selected" : "")
                           }
                           key={t.id}
-                          onClick={() => {
-                            setDetailTab("latest");
-                            setTargetRun(null);
-                            setSelected(t.id);
-                            setEditor(null);
-                            setCompose(false);
-                          }}
+                          disabled={busy}
+                          onClick={() =>
+                            leaveDraft(() => {
+                              setDetailTab("latest");
+                              setTargetRun(null);
+                              setSelected(t.id);
+                            })
+                          }
                         >
                           <div className="task-identity">
                             <div>
@@ -1392,15 +1563,16 @@ function App() {
                       <button
                         className="button secondary small"
                         disabled={busy}
-                        onClick={() => {
-                          setEditor({
-                            rule: detail.task.rule,
-                            taskId: detail.task.id,
-                            version: detail.task.version,
-                          });
-                          setCompose(false);
-                          window.scrollTo({ top: 100, behavior: "smooth" });
-                        }}
+                        onClick={() =>
+                          leaveDraft(() => {
+                            setEditor({
+                              rule: detail.task.rule,
+                              taskId: detail.task.id,
+                              version: detail.task.version,
+                            });
+                            window.scrollTo({ top: 100, behavior: "smooth" });
+                          })
+                        }
                       >
                         <Pencil aria-hidden="true" size={13} />
                         编辑规则
@@ -1716,12 +1888,15 @@ function App() {
                       <button
                         className="alert-item"
                         key={a.id}
-                        onClick={() => {
-                          setView("tasks");
-                          setSelected(a.taskId);
-                          setDetailTab("history");
-                          setTargetRun(a.runId);
-                        }}
+                        disabled={busy}
+                        onClick={() =>
+                          leaveDraft(() => {
+                            setView("tasks");
+                            setSelected(a.taskId);
+                            setDetailTab("history");
+                            setTargetRun(a.runId);
+                          })
+                        }
                       >
                         <Bell aria-hidden="true" size={18} />
                         <div>
@@ -1867,6 +2042,12 @@ function App() {
           </footer>
         </main>
       </div>
+      {discard && (
+        <DiscardDialog
+          onCancel={() => setDiscard(null)}
+          onDiscard={discard.proceed}
+        />
+      )}
     </div>
   );
 }

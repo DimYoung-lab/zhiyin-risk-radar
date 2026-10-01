@@ -54,6 +54,8 @@
 
 计划逐项验收与独立产品裁判意见见 [AUDIT.md](AUDIT.md)，评分摘录见 `verification/product-audit-report.json`。评分为内部产品评审，不是同花顺的官方考试成绩。
 
+后续用户视角评审补齐未保存编辑保护、旧预检失效、取消后的迟到解析与手机保存错误反馈，四项均已部署并通过线上复核。步骤、截图和未采纳的可选需求见 [UX_REVIEW.md](UX_REVIEW.md)，机器证据见 `verification/ux-review-report.json`。该轮仅修改前端；33项API和真实Cron报告保留此前后端验证的执行时间，新增交互回归单独记录。视频仍为168秒真实主链路录屏，新增反馈见补充截图。
+
 ## 包内目录
 
 - `README.md`：产品、运行和部署说明。

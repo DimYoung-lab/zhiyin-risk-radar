@@ -80,6 +80,36 @@ if (packageRoot) {
     manifest.verification.localApi.passed !== local.passed
   )
     failures.push("本地 API 报告与交付清单不一致");
+  const ux = JSON.parse(
+    fs.readFileSync(
+      path.join(packageRoot, "verification/ux-review-report.json"),
+      "utf8",
+    ),
+  );
+  if (
+    ux.onlineRetest.passed !== ux.onlineRetest.total ||
+    ux.onlineRetest.cases.length !== ux.onlineRetest.total ||
+    ux.onlineRetest.cases.some((item) => !item.passed) ||
+    manifest.verification.userExperienceReview.passed !==
+      ux.onlineRetest.passed ||
+    manifest.verification.userExperienceReview.total !==
+      ux.onlineRetest.total ||
+    manifest.workerVersion !== ux.workerVersion ||
+    ux.cleanup.mainAgent.remainingTasks !== 0 ||
+    ux.cleanup.mainAgent.remainingAlerts !== 0
+  )
+    failures.push("用户视角回归报告与交付清单不一致或测试数据未清理");
+  for (const entry of ux.screenshots) {
+    const file = path.join(packageRoot, entry.file);
+    if (
+      !fs.existsSync(file) ||
+      crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(file))
+        .digest("hex") !== entry.sha256
+    )
+      failures.push(`用户视角证据图缺失或校验不一致：${entry.file}`);
+  }
   const delivery = fs.readFileSync(
     path.join(docRoot, "docs/DELIVERY.md"),
     "utf8",
